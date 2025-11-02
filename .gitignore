@@ -1,0 +1,29 @@
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Environment variables
+.env
+.env.local
+
+# Build artifacts
+*.apk
+*.aab
+app/build/
+build/
+
+# Gradle
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Local configuration
+local.properties
+*.iml
+.idea/
+.DS_Store
+
+# Logs
+*.log

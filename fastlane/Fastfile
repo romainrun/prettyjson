@@ -1,0 +1,124 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+default_platform(:android)
+
+platform :android do
+  desc "Build the Android app"
+  lane :build do
+    gradle(
+      task: "assembleRelease",
+      project_dir: "."
+    )
+  end
+
+  desc "Build debug APK"
+  lane :build_debug do
+    gradle(
+      task: "assembleDebug",
+      project_dir: "."
+    )
+  end
+
+  desc "Build and deploy to DeployGate"
+  lane :deploy do |options|
+    # Build the release APK
+    gradle(
+      task: "assembleRelease",
+      project_dir: "."
+    )
+
+    # Upload to DeployGate
+    deploygate(
+      api_token: ENV["DEPLOYGATE_API_TOKEN"],
+      user_name: ENV["DEPLOYGATE_USER_NAME"] || options[:user_name],
+      apk: "app/build/outputs/apk/release/app-release.apk",
+      message: options[:message] || "Build uploaded via Fastlane",
+      distribution_key: options[:distribution_key],
+      disable_notify: options[:disable_notify] || false,
+      release_note: options[:release_note] || "Auto-deployed from CI/CD"
+    )
+  end
+
+  desc "Build and deploy debug APK to DeployGate"
+  lane :deploy_debug do |options|
+    # Build the debug APK
+    gradle(
+      task: "assembleDebug",
+      project_dir: "."
+    )
+
+    # Upload to DeployGate
+    deploygate(
+      api_token: ENV["DEPLOYGATE_API_TOKEN"],
+      user_name: ENV["DEPLOYGATE_USER_NAME"] || options[:user_name],
+      apk: "app/build/outputs/apk/debug/app-debug.apk",
+      message: options[:message] || "Debug build uploaded via Fastlane",
+      disable_notify: options[:disable_notify] || false,
+      release_note: options[:release_note] || "Debug build auto-deployed from CI/CD"
+    )
+  end
+
+  desc "Build and deploy with version bump"
+  lane :deploy_with_version do |options|
+    # Increment version code
+    increment_version_code(
+      gradle_file_path: "app/build.gradle.kts"
+    )
+
+    # Build and deploy
+    deploy(
+      message: options[:message],
+      distribution_key: options[:distribution_key],
+      release_note: options[:release_note]
+    )
+  end
+
+  desc "Clean build artifacts"
+  lane :clean do
+    gradle(
+      task: "clean",
+      project_dir: "."
+    )
+  end
+
+  desc "Run tests"
+  lane :test do
+    gradle(
+      task: "test",
+      project_dir: "."
+    )
+  end
+
+  desc "Build, test, and deploy to DeployGate"
+  lane :ci do |options|
+    clean
+    test
+    deploy(
+      message: options[:message] || "CI build",
+      release_note: options[:release_note] || "Automated CI/CD build"
+    )
+  end
+
+  desc "Full pipeline: clean, build, and deploy"
+  lane :release do |options|
+    clean
+    build
+    deploy(
+      message: options[:message] || "Production release",
+      distribution_key: options[:distribution_key],
+      release_note: options[:release_note] || "Production release build",
+      disable_notify: options[:disable_notify] || false
+    )
+  end
+end
+

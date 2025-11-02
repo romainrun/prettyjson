@@ -1,0 +1,17 @@
+# Appfile for Android project
+# Learn more: https://docs.fastlane.tools/getting-started/android/setup/
+
+# Application ID (package name)
+app_identifier("re.weare.app")
+
+# Android package name
+package_name("re.weare.app")
+
+# App name
+app_name("PrettyJSON")
+
+# Update these with your DeployGate credentials
+# Or set them as environment variables:
+# - DEPLOYGATE_USER_NAME
+# - DEPLOYGATE_API_TOKEN
+

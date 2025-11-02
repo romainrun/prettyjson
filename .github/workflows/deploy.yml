@@ -1,0 +1,64 @@
+name: Build and Deploy to DeployGate
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+          bundler-cache: true
+          
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+            
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        
+      - name: Install Fastlane plugins
+        run: |
+          bundle install
+          fastlane add_plugin deploygate || gem install fastlane-plugin-deploygate
+        continue-on-error: true
+        
+      - name: Build and Deploy to DeployGate
+        env:
+          DEPLOYGATE_API_TOKEN: ${{ secrets.DEPLOYGATE_API_TOKEN }}
+          DEPLOYGATE_USER_NAME: ${{ secrets.DEPLOYGATE_USER_NAME }}
+        run: |
+          fastlane android deploy \
+            message:"CI Build - $(date +'%Y-%m-%d %H:%M')" \
+            release_note:"Automated CI/CD build from commit ${{ github.sha }}"
+        continue-on-error: true
+        
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: app-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 7
+
