@@ -8,6 +8,13 @@
         android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    
+    <!-- BILLING permission required for Google Play Billing (one-time purchases) -->
+    <uses-permission android:name="com.android.vending.BILLING" />
+    
+    <!-- Explicitly remove CAMERA permission - not used by this app -->
+    <!-- ZXing library may include it, but we only generate QR codes, not scan them -->
+    <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
 
     <application
         android:name=".PrettyJSONApplication"
@@ -20,10 +27,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.PrettyJSON">
         
-        <!-- AdMob App ID - replace with your actual app ID -->
+        <!-- AdMob App ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-3137130387262789~9240936516" />
         
         <activity
             android:name=".MainActivity"

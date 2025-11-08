@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "re.weare.app"
+    namespace = "com.prettyjson.android"
     compileSdk = 36
 
     // Enable incremental resource processing for faster builds
@@ -16,25 +16,63 @@ android {
     }
 
     defaultConfig {
-        applicationId = "re.weare.app"
+        applicationId = "com.prettyjson.android"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
+        
+        // Generate version code from timestamp (ensures unique, incrementing version codes)
+        // Format: YYYYMMDDHHMM (e.g., 202411072037 for Nov 7, 2024, 20:37)
+        // This gives us a unique version code for each build that's always incrementing
+        val buildTime = System.currentTimeMillis() / 1000 // Unix timestamp in seconds
+        val baseDate = 1704067200L // Jan 1, 2024 00:00:00 UTC (base date)
+        val daysSinceBase = (buildTime - baseDate) / 86400 // Days since base date
+        val secondsInDay = (buildTime - baseDate) % 86400 // Seconds within the day
+        // Version code: days * 10000 + seconds/10 (gives us ~1000 builds per day max)
+        // This ensures version code is always incrementing and fits in Int32
+        versionCode = (daysSinceBase * 10000 + secondsInDay / 10).toInt()
+        
+        // Version name: Keep readable format (e.g., "1.0")
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
-        // AdMob App ID - replace with your actual app ID
-        buildConfigField("String", "ADMOB_APP_ID", "\"ca-app-pub-3940256099942544~3347511713\"")
+        // AdMob App ID - Production App ID
+        buildConfigField("String", "ADMOB_APP_ID", "\"ca-app-pub-3137130387262789~9240936516\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            // Keystore path: check app/ directory first (local), then root (CI/CD)
+            val keystorePath = if (file("app/json-viewer-release-key.jks").exists()) {
+                "app/json-viewer-release-key.jks"
+            } else {
+                "json-viewer-release-key.jks"
+            }
+            storeFile = file(keystorePath)
+            // Use environment variables for CI/CD, fallback to hardcoded for local builds
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "jsonviewer2024"
+            keyAlias = "json-viewer-key"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "jsonviewer2024"
+        }
     }
 
     buildTypes {
+        // Only release build type - always signed
         release {
             isMinifyEnabled = false
+            // MANDATORY: Release builds MUST be signed
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        
+        // Debug builds are disabled for production - only use for local development
+        // To build debug: ./gradlew assembleDebug (for local testing only)
+        getByName("debug") {
+            // Debug builds are unsigned - only for local development
+            // Do not use for distribution
         }
     }
     compileOptions {
@@ -54,6 +92,58 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+    
+    // Customize output file names to include version information
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            // For APK outputs - include version name and code in filename
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "app-${variant.name}-v${variant.versionName}-code${variant.versionCode}.apk"
+        }
+    }
+    
+    // For bundle files (AAB), configure splits
+    bundle {
+        language {
+            enableSplit = false
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+}
+
+// Task to rename AAB file with version information after build
+// Note: Using afterEvaluate to access version info and avoid configuration cache issues
+afterEvaluate {
+    val versionName = android.defaultConfig.versionName
+    val versionCode = android.defaultConfig.versionCode
+    
+    tasks.register("renameAAB") {
+        doLast {
+            val aabFile = file("build/outputs/bundle/release/app-release.aab")
+            if (aabFile.exists()) {
+                val newName = "app-release-v${versionName}-code${versionCode}.aab"
+                val newFile = file("build/outputs/bundle/release/${newName}")
+                aabFile.copyTo(newFile, overwrite = true)
+                println("✅ AAB renamed to: ${newName}")
+                println("📦 Location: ${newFile.absolutePath}")
+                println("📋 Version Name: ${versionName}")
+                println("🔢 Version Code: ${versionCode}")
+            } else {
+                println("⚠️  AAB file not found at: ${aabFile.absolutePath}")
+            }
+        }
+    }
+    
+    // Make renameAAB run after bundleRelease
+    tasks.named("bundleRelease") {
+        finalizedBy("renameAAB")
     }
 }
 
@@ -90,6 +180,9 @@ dependencies {
     // AdMob
     implementation(libs.google.mobile.ads)
     
+    // Play Billing
+    implementation(libs.google.play.billing)
+    
     // Dependency Injection
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
@@ -103,9 +196,15 @@ dependencies {
     // Material Icons Extended
     implementation(libs.material.icons.extended)
     
+    // QR Code
+    implementation(libs.zxing.core)
+    implementation(libs.zxing.android.embedded)
+    
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
+    testImplementation("org.json:json:20230618")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${libs.versions.coroutines.get()}")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

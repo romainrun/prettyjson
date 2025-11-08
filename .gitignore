@@ -27,3 +27,6 @@ local.properties
 
 # Logs
 *.log
+app/json-viewer-release-key.jks
+CERTIFICATE_INFO.txt
+CERTIFICATE_DETAILS.txt

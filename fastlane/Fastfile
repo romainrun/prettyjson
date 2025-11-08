@@ -13,39 +13,117 @@
 default_platform(:android)
 
 platform :android do
-  desc "Build the Android app"
+  desc "Build the Android app (SIGNED AAB for Play Store) - DEFAULT"
   lane :build do
+    # ALWAYS build signed release AAB - this is the default
+    gradle(
+      task: "bundleRelease",
+      project_dir: "."
+    )
+    
+    # Verify signature
+    aab_path = File.join(Dir.pwd, "app/build/outputs/bundle/release/app-release.aab")
+    if File.exist?(aab_path)
+      if system("jarsigner -verify -verbose -certs \"#{aab_path}\" > /dev/null 2>&1")
+        UI.success("✅ Signed AAB built successfully")
+      else
+        UI.user_error!("❌ AAB is not signed! Build failed.")
+      end
+    end
+  end
+
+  desc "Build SIGNED RELEASE APK (for testing or direct distribution)"
+  lane :build_apk do
+    # Builds signed release APK (not debug)
     gradle(
       task: "assembleRelease",
       project_dir: "."
     )
+    
+    # Verify signature
+    apk_path = File.join(Dir.pwd, "app/build/outputs/apk/release/app-release.apk")
+    if File.exist?(apk_path)
+      if system("jarsigner -verify -verbose -certs \"#{apk_path}\" > /dev/null 2>&1")
+        UI.success("✅ Signed APK built successfully")
+      else
+        UI.user_error!("❌ APK is not signed! Build failed.")
+      end
+    end
   end
 
-  desc "Build debug APK"
+  desc "Build debug APK (UNSIGNED - for local development only, NOT for distribution)"
   lane :build_debug do
+    UI.important("⚠️  WARNING: Building UNSIGNED debug APK - for local development only!")
+    UI.important("⚠️  Do NOT use debug builds for distribution or Play Store!")
     gradle(
       task: "assembleDebug",
       project_dir: "."
     )
   end
 
-  desc "Build and deploy to DeployGate"
+  desc "Build and deploy signed AAB ONLY to DeployGate"
   lane :deploy do |options|
-    # Build the release APK
+    # Build the signed release AAB (Android App Bundle) ONLY
+    # No APK is built - only signed AAB is deployed
+    # The release build type is configured to use the signing config in build.gradle.kts
     gradle(
-      task: "assembleRelease",
-      project_dir: "."
+      task: "bundleRelease",
+      project_dir: ".",
+      flags: "--no-configuration-cache"
     )
 
-    # Upload to DeployGate
+    # Get the AAB path from Gradle output (absolute path)
+    aab_path = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    if aab_path.nil? || aab_path.empty?
+      # Fallback to relative path
+      aab_path = File.join(Dir.pwd, "app/build/outputs/bundle/release/app-release.aab")
+    end
+
+    # Verify the AAB file exists
+    UI.message("Verifying AAB file...")
+    
+    if !File.exist?(aab_path)
+      UI.user_error!("❌ AAB file not found at: #{aab_path}")
+    end
+    
+    # Verify AAB signature explicitly - MANDATORY
+    # Only signed versions are allowed to be deployed
+    UI.message("Verifying AAB signature (MANDATORY)...")
+    aab_signed = false
+    
+    # Try using jarsigner first (more reliable on macOS)
+    if system("jarsigner -verify -verbose -certs \"#{aab_path}\" > /dev/null 2>&1")
+      aab_signed = true
+      UI.success("✅ AAB signature verified using jarsigner")
+    # Fallback to apksigner if available
+    elsif system("which apksigner > /dev/null 2>&1")
+      if system("apksigner verify --print-certs \"#{aab_path}\" > /dev/null 2>&1")
+        aab_signed = true
+        UI.success("✅ AAB signature verified using apksigner")
+      end
+    end
+    
+    # STRICT: Fail if signature cannot be verified
+    if !aab_signed
+      if !system("which jarsigner > /dev/null 2>&1") && !system("which apksigner > /dev/null 2>&1")
+        UI.user_error!("❌ Signature verification tools (jarsigner/apksigner) not found. Cannot verify AAB signature. Deployment aborted.")
+      else
+        UI.user_error!("❌ AAB signature verification FAILED. The AAB is not properly signed. Deployment aborted.")
+      end
+    end
+    
+    UI.success("✅ AAB signature verified - proceeding with deployment")
+
+    # Upload signed AAB to DeployGate
+    # Note: DeployGate may convert AAB to APK for distribution
     deploygate(
       api_token: ENV["DEPLOYGATE_API_TOKEN"],
-      user_name: ENV["DEPLOYGATE_USER_NAME"] || options[:user_name],
-      apk: "app/build/outputs/apk/release/app-release.apk",
-      message: options[:message] || "Build uploaded via Fastlane",
+      user: ENV["DEPLOYGATE_ORGANIZATION"] || options[:organization] || "sportx-test3",
+      apk: aab_path,  # DeployGate accepts AAB files
+      message: options[:message] || "Build uploaded via Fastlane from local machine",
       distribution_key: options[:distribution_key],
       disable_notify: options[:disable_notify] || false,
-      release_note: options[:release_note] || "Auto-deployed from CI/CD"
+      release_note: options[:release_note] || "Deployed from local machine"
     )
   end
 
@@ -60,7 +138,7 @@ platform :android do
     # Upload to DeployGate
     deploygate(
       api_token: ENV["DEPLOYGATE_API_TOKEN"],
-      user_name: ENV["DEPLOYGATE_USER_NAME"] || options[:user_name],
+      user: ENV["DEPLOYGATE_ORGANIZATION"] || options[:organization] || "sportx-test3",
       apk: "app/build/outputs/apk/debug/app-debug.apk",
       message: options[:message] || "Debug build uploaded via Fastlane",
       disable_notify: options[:disable_notify] || false,
@@ -119,6 +197,30 @@ platform :android do
       release_note: options[:release_note] || "Production release build",
       disable_notify: options[:disable_notify] || false
     )
+  end
+
+  desc "Build AAB for Play Store submission"
+  lane :build_playstore do |options|
+    # Build the signed release AAB (Android App Bundle)
+    # Required format for Google Play Store submission
+    gradle(
+      task: "bundleRelease",
+      project_dir: "."
+    )
+
+    # Get the AAB path from Gradle output
+    aab_path = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    if aab_path.nil? || aab_path.empty?
+      aab_path = File.join(Dir.pwd, "app/build/outputs/bundle/release/app-release.aab")
+    end
+
+    if !File.exist?(aab_path)
+      UI.user_error!("❌ AAB file not found at: #{aab_path}")
+    end
+
+    UI.success("✅ AAB built successfully at: #{aab_path}")
+    UI.important("📦 Ready for Play Store submission!")
+    UI.message("Upload this file to Google Play Console → App Bundle")
   end
 end
 

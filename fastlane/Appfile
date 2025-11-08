@@ -2,10 +2,10 @@
 # Learn more: https://docs.fastlane.tools/getting-started/android/setup/
 
 # Application ID (package name)
-app_identifier("re.weare.app")
+app_identifier("com.prettyjson.android")
 
 # Android package name
-package_name("re.weare.app")
+package_name("com.prettyjson.android")
 
 # App name
 app_name("PrettyJSON")

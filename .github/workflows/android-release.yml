@@ -1,0 +1,91 @@
+name: Android Release Build
+
+on:
+  push:
+    tags:
+      - '*_DeployGate'
+
+env:
+  JAVA_VERSION: '17'
+  ARTIFACT_RETENTION_DAYS: 30
+  GRADLE_BUILD_FLAGS: '--no-configuration-cache'
+
+jobs:
+  build:
+    name: Build Release APK and AAB
+    runs-on: self-hosted
+    
+    steps:
+      - name: Print tag name
+        run: |
+          echo "Building version: ${{ github.ref_name }}"
+          echo "Tag format: YYYYMMDD_X.Y.Z_DeployGate"
+          echo "Java version: ${{ env.JAVA_VERSION }}"
+          echo "Artifact retention: ${{ env.ARTIFACT_RETENTION_DAYS }} days"
+      
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'gradle'
+      
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+      
+      - name: Setup signing keystore
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "Extracting keystore from secret..."
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > json-viewer-release-key.jks
+            chmod 600 json-viewer-release-key.jks
+            echo "✅ Keystore extracted"
+          elif [ -f "app/json-viewer-release-key.jks" ]; then
+            echo "Using keystore from app/ directory"
+            cp app/json-viewer-release-key.jks json-viewer-release-key.jks
+            chmod 600 json-viewer-release-key.jks
+          elif [ -f "json-viewer-release-key.jks" ]; then
+            echo "✅ Keystore found at root"
+          else
+            echo "⚠️  Warning: Keystore file not found. Build may fail if signing is required."
+          fi
+      
+      - name: Build Release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease ${{ env.GRADLE_BUILD_FLAGS }}
+      
+      - name: Build Release AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease ${{ env.GRADLE_BUILD_FLAGS }}
+      
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrettyJSON-${{ github.ref_name }}
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: warn
+      
+      - name: List built artifacts
+        run: |
+          echo "## Build Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### APK Files:" >> $GITHUB_STEP_SUMMARY
+          ls -lh app/build/outputs/apk/release/*.apk 2>/dev/null | awk '{print "- " $9 " (" $5 ")"}' >> $GITHUB_STEP_SUMMARY || echo "- No APK files found" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### AAB Files:" >> $GITHUB_STEP_SUMMARY
+          ls -lh app/build/outputs/bundle/release/*.aab 2>/dev/null | awk '{print "- " $9 " (" $5 ")"}' >> $GITHUB_STEP_SUMMARY || echo "- No AAB files found" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifact Name**: PrettyJSON-${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Artifacts available for download in the Actions tab." >> $GITHUB_STEP_SUMMARY
+

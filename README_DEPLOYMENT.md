@@ -6,7 +6,7 @@
 
 ### Fastlane Configuration
 - ✅ `fastlane/Fastfile` - Main Fastlane configuration with all lanes
-- ✅ `fastlane/Appfile` - App configuration (package: `re.weare.app`)
+- ✅ `fastlane/Appfile` - App configuration (package: `com.prettyjson.android`)
 - ✅ `fastlane/Pluginfile` - DeployGate plugin configuration
 - ✅ `fastlane/README.md` - Detailed Fastlane documentation
 
