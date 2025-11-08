@@ -126,29 +126,33 @@ android {
 }
 
 // Task to rename AAB file with version information after build
-// Note: Using afterEvaluate to access version info and avoid configuration cache issues
-afterEvaluate {
-    val versionName = android.defaultConfig.versionName
-    val versionCode = android.defaultConfig.versionCode
+// Note: This task is not compatible with configuration cache due to Project access
+// It's marked to disable configuration cache for this specific task
+tasks.register("renameAAB") {
+    // Disable configuration cache for this task (it accesses Project properties)
+    notCompatibleWithConfigurationCache("Task accesses Project properties")
     
-    tasks.register("renameAAB") {
-        doLast {
-            val aabFile = file("build/outputs/bundle/release/app-release.aab")
-            if (aabFile.exists()) {
-                val newName = "app-release-v${versionName}-code${versionCode}.aab"
-                val newFile = file("build/outputs/bundle/release/${newName}")
-                aabFile.copyTo(newFile, overwrite = true)
-                println("✅ AAB renamed to: ${newName}")
-                println("📦 Location: ${newFile.absolutePath}")
-                println("📋 Version Name: ${versionName}")
-                println("🔢 Version Code: ${versionCode}")
-            } else {
-                println("⚠️  AAB file not found at: ${aabFile.absolutePath}")
-            }
+    doLast {
+        // Access version info directly in doLast (execution phase, not configuration phase)
+        val versionName = android.defaultConfig.versionName
+        val versionCode = android.defaultConfig.versionCode
+        val aabFile = file("app/build/outputs/bundle/release/app-release.aab")
+        if (aabFile.exists()) {
+            val newName = "app-release-v${versionName}-code${versionCode}.aab"
+            val newFile = file("app/build/outputs/bundle/release/${newName}")
+            aabFile.copyTo(newFile, overwrite = true)
+            println("✅ AAB renamed to: ${newName}")
+            println("📦 Location: ${newFile.absolutePath}")
+            println("📋 Version Name: ${versionName}")
+            println("🔢 Version Code: ${versionCode}")
+        } else {
+            println("⚠️  AAB file not found at: ${aabFile.absolutePath}")
         }
     }
-    
-    // Make renameAAB run after bundleRelease
+}
+
+// Make renameAAB run after bundleRelease
+afterEvaluate {
     tasks.named("bundleRelease") {
         finalizedBy("renameAAB")
     }
