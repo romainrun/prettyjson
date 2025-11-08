@@ -21,15 +21,16 @@ android {
         targetSdk = 35
         
         // Generate version code from timestamp (ensures unique, incrementing version codes)
-        // Format: YYYYMMDDHHMM (e.g., 202411072037 for Nov 7, 2024, 20:37)
+        // Format: includes seconds for better precision
         // This gives us a unique version code for each build that's always incrementing
         val buildTime = System.currentTimeMillis() / 1000 // Unix timestamp in seconds
         val baseDate = 1704067200L // Jan 1, 2024 00:00:00 UTC (base date)
         val daysSinceBase = (buildTime - baseDate) / 86400 // Days since base date
         val secondsInDay = (buildTime - baseDate) % 86400 // Seconds within the day
-        // Version code: days * 10000 + seconds/10 (gives us ~1000 builds per day max)
+        // Version code: days * 100000 + seconds (includes seconds for better precision)
         // This ensures version code is always incrementing and fits in Int32
-        versionCode = (daysSinceBase * 10000 + secondsInDay / 10).toInt()
+        // Max value: ~365 days * 100000 + 86400 seconds = ~36,586,400 (well within Int32 max: 2,147,483,647)
+        versionCode = (daysSinceBase * 100000 + secondsInDay).toInt()
         
         // Version name: Keep readable format (e.g., "1.0")
         versionName = "1.0"
