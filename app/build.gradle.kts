@@ -42,14 +42,18 @@ android {
 
     signingConfigs {
         create("release") {
-            // Keystore path: check app/ directory first (local), then root (CI/CD)
+            // Keystore path: check app/ directory first (works for both local and CI/CD)
+            // In CI/CD, the workflow places the keystore in app/ directory
             val keystorePath = if (file("app/json-viewer-release-key.jks").exists()) {
                 "app/json-viewer-release-key.jks"
+            } else if (file("json-viewer-release-key.jks").exists()) {
+                "json-viewer-release-key.jks"
             } else {
+                // Fallback for CI/CD if keystore is at root
                 "json-viewer-release-key.jks"
             }
             storeFile = file(keystorePath)
-            // Use environment variables for CI/CD, fallback to hardcoded for local builds
+            // Use environment variables for CI/CD (from GitHub Actions secrets), fallback to hardcoded for local builds
             storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "jsonviewer2024"
             keyAlias = "json-viewer-key"
             keyPassword = System.getenv("KEY_PASSWORD") ?: "jsonviewer2024"
