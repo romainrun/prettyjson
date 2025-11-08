@@ -85,10 +85,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-artifacts
-          path: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/bundle/release/*.aab
+          name: app-release-aab
+          path: app/build/outputs/bundle/release/*.aab
           retention-days: 7
           if-no-files-found: ignore
 
