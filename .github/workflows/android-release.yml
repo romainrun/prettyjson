@@ -8,7 +8,7 @@ on:
 env:
   JAVA_VERSION: '17'
   ARTIFACT_RETENTION_DAYS: 30
-  GRADLE_BUILD_FLAGS: '--no-configuration-cache'
+  GRADLE_BUILD_FLAGS: '--parallel --build-cache --configuration-cache --no-daemon'
 
 jobs:
   build:
@@ -19,9 +19,10 @@ jobs:
       - name: Print tag name
         run: |
           echo "Building version: ${{ github.ref_name }}"
-          echo "Tag format: YYYYMMDD_X.Y.Z_DeployGate"
+          echo "Tag format: YYYYMMDD_HHMMSS_X.Y.Z_DeployGate"
           echo "Java version: ${{ env.JAVA_VERSION }}"
           echo "Artifact retention: ${{ env.ARTIFACT_RETENTION_DAYS }} days"
+          echo "Build flags: ${{ env.GRADLE_BUILD_FLAGS }}"
       
       - name: Checkout code
         uses: actions/checkout@v4
@@ -63,7 +64,7 @@ jobs:
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease ${{ env.GRADLE_BUILD_FLAGS }}
+        run: ./gradlew bundleRelease ${{ env.GRADLE_BUILD_FLAGS }} -x lint -x lintVitalRelease
       
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v4

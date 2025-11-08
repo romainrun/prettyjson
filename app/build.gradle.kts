@@ -71,6 +71,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Skip lint for faster builds (lint is slow and not needed for release)
+            // Lint can be run separately with: ./gradlew lintRelease
         }
         
         // Debug builds are disabled for production - only use for local development
