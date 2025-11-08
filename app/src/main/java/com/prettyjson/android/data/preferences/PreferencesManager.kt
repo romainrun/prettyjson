@@ -105,9 +105,9 @@ class PreferencesManager(context: Context) {
         }
     }
     
-    // Text size preference (default 14sp)
+    // Text size preference (default 11sp)
     val textSize: Flow<Int> = dataStore.data.map { preferences ->
-        preferences[KEY_TEXT_SIZE] ?: 14
+        preferences[KEY_TEXT_SIZE] ?: 11
     }
     
     suspend fun setTextSize(size: Int) {
