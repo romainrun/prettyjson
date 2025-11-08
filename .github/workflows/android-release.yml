@@ -66,6 +66,46 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew bundleRelease ${{ env.GRADLE_BUILD_FLAGS }} -x lint -x lintVitalRelease
       
+      - name: Deploy to DeployGate via API
+        env:
+          DEPLOYGATE_API_TOKEN: ${{ secrets.DEPLOYGATE_API_TOKEN }}
+          DEPLOYGATE_USER_NAME: ${{ secrets.DEPLOYGATE_USER_NAME }}
+        run: |
+          # Find the built AAB file (look for renamed file first, then fallback to default)
+          AAB_FILE=$(find app/build/outputs/bundle/release -name "*.aab" | head -1)
+          if [ -z "$AAB_FILE" ]; then
+            echo "❌ No AAB file found"
+            exit 1
+          fi
+          
+          echo "📦 Uploading $AAB_FILE to DeployGate..."
+          echo "📋 File size: $(ls -lh "$AAB_FILE" | awk '{print $5}')"
+          
+          # Upload to DeployGate using their API
+          RESPONSE=$(curl -X POST \
+            -F "file=@$AAB_FILE" \
+            -F "message=CI Build - ${{ github.ref_name }} - $(date +'%Y-%m-%d %H:%M:%S')" \
+            -F "release_note=Automated CI/CD build from tag ${{ github.ref_name }}\nCommit: ${{ github.sha }}" \
+            -H "Authorization: token $DEPLOYGATE_API_TOKEN" \
+            "https://deploygate.com/api/users/$DEPLOYGATE_USER_NAME/apps" \
+            -w "\nHTTP_CODE:%{http_code}")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | grep -o "HTTP_CODE:[0-9]*" | cut -d: -f2)
+          RESPONSE_BODY=$(echo "$RESPONSE" | sed 's/HTTP_CODE:[0-9]*$//')
+          
+          echo "Response HTTP Code: $HTTP_CODE"
+          echo "Response Body: $RESPONSE_BODY"
+          
+          if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
+            echo "❌ DeployGate upload failed with HTTP code $HTTP_CODE"
+            exit 1
+          elif echo "$RESPONSE_BODY" | grep -q '"error"'; then
+            echo "❌ DeployGate upload failed with error in response"
+            exit 1
+          else
+            echo "✅ Successfully uploaded to DeployGate"
+          fi
+      
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -84,4 +124,7 @@ jobs:
           echo "**Artifact Name**: PrettyJSON-${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Artifacts available for download in the Actions tab." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### DeployGate Deployment:" >> $GITHUB_STEP_SUMMARY
+          echo "✅ AAB has been deployed to DeployGate" >> $GITHUB_STEP_SUMMARY
 
