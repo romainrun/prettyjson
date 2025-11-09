@@ -449,8 +449,8 @@ fun MainScreen(
                 Box {}
             }
         },
-        bottomBar = if (fullScreenTab == null && !isPremium) {
-            { 
+        bottomBar = {
+            if (fullScreenTab == null && !isPremium) {
                 Surface(
                     color = MaterialTheme.colorScheme.surface
                 ) {
@@ -459,8 +459,7 @@ fun MainScreen(
                     )
                 }
             }
-        } else {
-            null // Hide bottom bar in full screen or for premium users
+            // Hide bottom bar in full screen or for premium users (empty composable)
         },
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
