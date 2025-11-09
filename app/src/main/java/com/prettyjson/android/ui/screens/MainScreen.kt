@@ -451,12 +451,16 @@ fun MainScreen(
         },
         bottomBar = if (fullScreenTab == null && !isPremium) {
             { 
-                Box {
-                    BannerAdView()
+                Surface(
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    BannerAdView(
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         } else {
-            { Box {} } // Hide bottom bar in full screen or for premium users
+            null // Hide bottom bar in full screen or for premium users
         },
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)

@@ -57,13 +57,23 @@ fun PrettyJSONTheme(
             window?.let {
                 // Set status bar and navigation bar colors to match theme surface
                 WindowCompat.setDecorFitsSystemWindows(it, true)
-                it.statusBarColor = colorScheme.surface.toArgb()
-                it.navigationBarColor = colorScheme.surface.toArgb()
                 
-                // Set light/dark status bar icons based on theme
+                // Get the surface color as ARGB
+                val surfaceColor = colorScheme.surface.toArgb()
+                
+                // Set status bar color to match surface
+                it.statusBarColor = surfaceColor
+                
+                // Set navigation bar color to match surface
+                it.navigationBarColor = surfaceColor
+                
+                // Use WindowInsetsControllerCompat for better control
                 val insetsController = WindowCompat.getInsetsController(it, view)
                 insetsController.isAppearanceLightStatusBars = !darkTheme
                 insetsController.isAppearanceLightNavigationBars = !darkTheme
+                
+                // Ensure the window background is transparent so the surface color shows through
+                it.setBackgroundDrawableResource(android.R.color.transparent)
             }
         }
     }
