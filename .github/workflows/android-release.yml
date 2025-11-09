@@ -99,11 +99,16 @@ jobs:
           if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
             echo "❌ DeployGate upload failed with HTTP code $HTTP_CODE"
             exit 1
-          elif echo "$RESPONSE_BODY" | grep -q '"error"'; then
+          elif echo "$RESPONSE_BODY" | grep -q '"error":true'; then
             echo "❌ DeployGate upload failed with error in response"
             exit 1
           else
             echo "✅ Successfully uploaded to DeployGate"
+            # Extract useful info from response
+            if echo "$RESPONSE_BODY" | grep -q '"revision"'; then
+              REVISION=$(echo "$RESPONSE_BODY" | grep -o '"revision":[0-9]*' | cut -d: -f2)
+              echo "📦 Revision: $REVISION"
+            fi
           fi
       
       - name: Upload Release Artifacts
